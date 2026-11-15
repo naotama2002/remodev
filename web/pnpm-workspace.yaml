@@ -1,0 +1,5 @@
+# Supply-chain hardening: no install scripts, no packages younger than 7 days.
+packages: []
+minimumReleaseAge: 10080
+onlyBuiltDependencies: []
+strictDepBuilds: true

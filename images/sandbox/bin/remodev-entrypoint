@@ -1,0 +1,6 @@
+#!/bin/sh
+# PID 1 of the sandbox (runs as root only to build the CA bundle, then idles).
+set -eu
+cat /etc/ssl/certs/ca-certificates.crt /etc/remodev/ca.crt > /etc/remodev/ca-bundle.crt
+chmod 644 /etc/remodev/ca-bundle.crt
+exec sleep infinity

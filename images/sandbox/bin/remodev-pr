@@ -1,0 +1,19 @@
+#!/bin/bash
+# Usage: remodev-pr "<title>" "<body>"
+# Creates or updates the PR for this session's branch via the GitHub REST API.
+# The Authorization header carries a placeholder; the egress proxy injects the
+# real token and only permits writes to this session's repository.
+set -euo pipefail
+title="${1:?title required}"; body="${2:-}"
+api="https://api.github.com/repos/$REMODEV_REPO/pulls"
+owner="${REMODEV_REPO%%/*}"
+hdr=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json")
+existing=$(curl -fsS "${hdr[@]}" "$api?head=$owner:$REMODEV_BRANCH&state=open" | jq -r '.[0].number // empty')
+if [ -n "$existing" ]; then
+  jq -n --arg t "$title" --arg b "$body" '{title:$t, body:$b}' \
+    | curl -fsS "${hdr[@]}" -X PATCH --data @- "$api/$existing" | jq -r .html_url
+else
+  jq -n --arg t "$title" --arg b "$body" --arg h "$REMODEV_BRANCH" --arg base "$REMODEV_BASE" \
+      '{title:$t, body:($b + "\n\n---\n_Created by remodev session `" + env.REMODEV_SESSION + "`_"), head:$h, base:$base, draft:true}' \
+    | curl -fsS "${hdr[@]}" -X POST --data @- "$api" | jq -r .html_url
+fi

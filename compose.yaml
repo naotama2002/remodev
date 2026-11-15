@@ -1,0 +1,26 @@
+# Local development environment.
+#   cp .env.example .env   # fill in tokens
+#   make images && docker compose up --build
+#   open http://localhost:8080
+name: remodev
+
+services:
+  control:
+    build: .
+    container_name: remodev-control
+    user: "0:0" # needs the docker socket; in production use a socket proxy
+    env_file: .env
+    environment:
+      REMODEV_DATA_DIR: /data
+      REMODEV_CONTROL_CONTAINER: remodev-control
+      REMODEV_BASE_URL: http://localhost:8080
+      REMODEV_PREVIEW_DOMAIN: preview.localhost:8080
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - remodev-data:/data
+    restart: unless-stopped
+
+volumes:
+  remodev-data:

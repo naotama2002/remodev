@@ -1,0 +1,31 @@
+#!/bin/bash
+# Prepare the workspace: clone the repo (first time) and check out the session branch.
+set -euo pipefail
+: "${REMODEV_REPO:?}" "${REMODEV_BRANCH:?}" "${REMODEV_BASE:?}"
+mkdir -p "$HOME"
+# Wait for the CA bundle written by the entrypoint.
+for _ in $(seq 50); do [ -s /etc/remodev/ca-bundle.crt ] && break; sleep 0.1; done
+# Wait for the egress proxy to accept connections.
+for i in $(seq 100); do
+  curl -s -o /dev/null -m 2 https://github.com/ && break
+  [ "$i" = 100 ] && { echo "egress proxy not reachable" >&2; exit 1; }
+  sleep 0.2
+done
+
+git config --global user.name  "remodev"
+git config --global user.email "remodev@users.noreply.github.com"
+git config --global init.defaultBranch main
+git config --global push.autoSetupRemote true
+# send proxy credentials up front (default "anyauth" first tries without, which nono logs as a deny)
+git config --global http.proxyAuthMethod basic
+
+if [ ! -d /workspace/repo/.git ]; then
+  echo "cloning $REMODEV_REPO ..."
+  git clone -q --branch "$REMODEV_BASE" "https://github.com/$REMODEV_REPO.git" /workspace/repo
+  cd /workspace/repo
+  git checkout -q -b "$REMODEV_BRANCH"
+  echo "checked out $REMODEV_BRANCH from $REMODEV_BASE"
+else
+  cd /workspace/repo
+  echo "workspace restored ($(git rev-parse --abbrev-ref HEAD))"
+fi

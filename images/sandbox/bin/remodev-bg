@@ -1,0 +1,8 @@
+#!/bin/bash
+# Run a long-lived process (e.g. a dev server) in the background.
+# Logs: /workspace/logs/<name>.log
+set -euo pipefail
+mkdir -p /workspace/logs
+name=$(basename "$1")-$(date +%s)
+nohup setsid "$@" >"/workspace/logs/$name.log" 2>&1 </dev/null &
+echo "started pid $! (log: /workspace/logs/$name.log)"

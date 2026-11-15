@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>remodev — UI mocks</title>
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--fg:#e6e6e6;--dim:#8b93a3;--accent:#6aa9ff;--red:#ff6b6b;--green:#5fd38d;--yellow:#f0c05a;--purple:#b48cff;
+font:14px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;color:var(--fg);background:var(--bg)}
+*{box-sizing:border-box}body{margin:0}a{color:var(--accent);text-decoration:none}
+code,pre{font:12.5px/1.5 ui-monospace,Menlo,monospace}pre{margin:4px 0 0;white-space:pre-wrap}
+.btn{display:inline-block;white-space:nowrap;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 11px;font-size:13px;cursor:pointer}
+.btn.p{background:var(--accent);color:#000;border-color:var(--accent)}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:1px 8px;font-size:12px;color:var(--dim)}
+.chip.g{color:var(--green);border-color:#2d5a3e}.chip.y{color:var(--yellow);border-color:#5c4d26}.chip.r{color:var(--red);border-color:#5c2d2d}.chip.pu{color:var(--purple);border-color:#4a3a6b}
+.dim{color:var(--dim)}.sm{font-size:12px}
+input,textarea,select{width:100%;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:8px;font:inherit}
+/* shell */
+.shell{display:grid;grid-template-columns:220px 1fr;height:100vh}
+nav{border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
+nav h1{font-size:18px;margin:0 8px 14px}
+nav a{color:var(--fg);padding:7px 10px;border-radius:6px;display:flex;justify-content:space-between}
+nav a.on,nav a:hover{background:var(--panel)}
+nav .me{margin-top:auto;padding:10px;border-top:1px solid var(--line);font-size:12px;color:var(--dim)}
+.screen{display:none;overflow:auto;height:100vh}.screen.on{display:block}
+.page{padding:20px 24px;max-width:1200px}
+.page h2{margin:0 0 14px;font-size:18px}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.bar input,.bar select{width:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;color:var(--dim);font-weight:500;font-size:12px;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:hover td{background:var(--panel)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.grid{display:grid;gap:12px}
+/* session detail */
+.sd{display:grid;grid-template-columns:1fr 400px;height:100vh}
+.sd header{grid-column:1/3;display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line)}
+.sd header h2{margin:0;font-size:16px}
+.tl{overflow:auto;padding:14px 18px;display:flex;flex-direction:column;gap:7px;height:calc(100vh - 57px - 92px)}
+.left{display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.ev{border-radius:8px;padding:7px 11px}
+.ev.u{background:#1e2a3d}.ev.a{background:var(--panel)}.ev.t{color:var(--dim);padding:2px 11px;font-size:13px}
+.ev.e{color:var(--yellow);font-size:12px;padding:2px 11px}.ev.ok{background:#17301f}
+.who{font-size:12px;color:var(--dim);margin-bottom:2px}
+.composer{border-top:1px solid var(--line);padding:12px 18px;display:flex;gap:8px;height:92px}
+.side{overflow:auto;height:calc(100vh - 57px)}
+.tabs{display:flex;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
+.tabs span{padding:9px 13px;font-size:13px;color:var(--dim);cursor:pointer}.tabs span.on{color:var(--fg);border-bottom:2px solid var(--accent)}
+.sec{padding:12px 14px;border-bottom:1px solid var(--line)}
+.sec h4{margin:0 0 8px;font-size:12px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.shot{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;color:#111;font-size:11px}
+.shot .top{background:#eef1f5;padding:4px 8px;color:#666;font-size:10px}
+.shot .body{padding:10px;height:120px;display:grid;grid-template-columns:70px 1fr;gap:8px}
+.shot .nav{background:#e9ecf2;border-radius:4px}.shot .row{height:12px;background:#dfe5ee;border-radius:3px;margin-bottom:7px}.shot .hl{background:#ffe48a}
+.diff{background:var(--panel);border-radius:6px;padding:6px 8px;font:12px/1.55 ui-monospace,Menlo,monospace}
+.add{color:var(--green)}.del{color:var(--red)}
+.kv{display:grid;grid-template-columns:90px 1fr;gap:4px 8px;font-size:13px}
+/* misc */
+.stat{font-size:26px;font-weight:700}
+.barchart{display:flex;align-items:flex-end;gap:5px;height:120px;padding-top:8px}
+.barchart div{flex:1;background:var(--accent);border-radius:3px 3px 0 0;opacity:.85}
+.note{border-left:3px solid var(--purple);padding:6px 10px;color:var(--dim);font-size:12.5px;margin:0 0 14px;background:#1a1726}
+</style>
+</head>
+<body>
+<div class="shell">
+<nav>
+  <h1>remodev</h1>
+  <a href="#list" data-s="list">セッション <span class="dim sm">128</span></a>
+  <a href="#detail" data-s="detail">└ セッション詳細</a>
+  <a href="#new" data-s="new">新規セッション</a>
+  <a href="#agents" data-s="agents">Agent カタログ</a>
+  <a href="#schedules" data-s="schedules">スケジュール</a>
+  <a href="#integrations" data-s="integrations">連携</a>
+  <a href="#dashboard" data-s="dashboard">ダッシュボード</a>
+  <div class="me">naotama2002 · team: naotama2002<br/>モック（静的 HTML・ダミーデータ）</div>
+</nav>
+
+<!-- ============ 一覧 ============ -->
+<section class="screen" id="s-list"><div class="page">
+  <h2>セッション</h2>
+  <p class="note">チーム全員のセッションが原則公開。上手な人の使い方を真似できる。個人権限で動いたセッションは本人だけに表示。</p>
+  <div class="bar">
+    <input placeholder="検索（タイトル・指示・リポジトリ）" style="width:320px"/>
+    <select><option>すべてのリポジトリ</option></select>
+    <select><option>すべての作成者</option><option>自分</option></select>
+    <select><option>すべての Agent</option></select>
+    <select><option>すべての状態</option><option>作業中</option><option>待機</option><option>PR あり</option></select>
+    <span style="flex:1"></span><a class="btn p" href="#new">+ 新規セッション</a>
+  </div>
+  <table>
+    <tr><th>タイトル</th><th>リポジトリ</th><th>Agent</th><th>作成者 / 経路</th><th>状態</th><th>PR</th><th>更新</th></tr>
+    <tr><td><a href="#detail">請求書一覧に「支払期日」で並び替えを追加</a><div class="dim sm">“一覧画面の列ヘッダから…”</div></td><td>acme/app</td><td><span class="chip">default</span></td><td>naotama2002<div class="dim sm">Web</div></td><td><span class="chip y">● 作業中</span></td><td>—</td><td class="dim">今</td></tr>
+    <tr><td>flaky: TestInvoiceExport を修正</td><td>acme/app</td><td><span class="chip pu">flaky-fixer</span></td><td>scheduler<div class="dim sm">API (ダッシュボードのボタン)</div></td><td><span class="chip g">● 待機</span></td><td><a href="#">#4123</a> <span class="chip g">CI ✓</span></td><td class="dim">12分前</td></tr>
+    <tr><td>#incident-0412 の 500 エラー原因調査</td><td>acme/app</td><td><span class="chip pu">investigator</span></td><td>tanaka<div class="dim sm">Slack #dev-alerts</div></td><td><span class="chip g">● 待機</span></td><td>—</td><td class="dim">1時間前</td></tr>
+    <tr><td>週次: 依存パッケージのセキュリティスキャン</td><td>acme/*</td><td><span class="chip pu">security-scan</span></td><td>schedule<div class="dim sm">毎週月曜 9:00</div></td><td><span class="chip">■ 停止</span></td><td><a href="#">#4110</a> <span class="chip">merged</span></td><td class="dim">2日前</td></tr>
+    <tr><td>設定画面のボタン文言を統一（デザイナー依頼）</td><td>acme/app</td><td><span class="chip">default</span></td><td>suzuki<div class="dim sm">Slack #design</div></td><td><span class="chip">■ 停止</span></td><td><a href="#">#4098</a> <span class="chip">merged</span></td><td class="dim">3日前</td></tr>
+    <tr><td>🔒 自分の Linear チケット整理</td><td>—</td><td><span class="chip">personal</span></td><td>naotama2002<div class="dim sm">Web（個人権限・非公開）</div></td><td><span class="chip">■ 停止</span></td><td>—</td><td class="dim">4日前</td></tr>
+  </table>
+</div></section>
+
+<!-- ============ 詳細 ============ -->
+<section class="screen" id="s-detail">
+<div class="sd">
+  <header>
+    <div>
+      <h2>請求書一覧に「支払期日」で並び替えを追加</h2>
+      <div class="dim sm">acme/app · <code>remodev/7f3a9c21e0</code> ← main · Agent: default · 作成 naotama2002 · 公開 · 4 ターン · $0.84</div>
+    </div>
+    <div class="bar" style="margin:0">
+      <span class="chip y">● 作業中 3:12</span>
+      <span class="btn">共有リンク</span><span class="btn">中断</span><span class="btn">停止</span>
+    </div>
+  </header>
+  <div class="left">
+    <div class="tl">
+      <div class="ev u"><div class="who">naotama2002 · Web</div>請求書一覧の列ヘッダから「支払期日」で並び替えできるようにして。既存のソート UI に合わせて、E2E で確認してスクショを PR に貼って。</div>
+      <div class="dim sm" style="padding:0 11px">環境 acme/app (.remodev/Dockerfile, キャッシュ済み) · 起動 2.8s</div>
+      <div class="ev t">🔧 Grep <code>sortableColumns</code> → 4 件</div>
+      <div class="ev t">🔧 Read <code>web/src/features/invoice/InvoiceList.tsx</code></div>
+      <div class="ev a">既存の並び替えは <code>sortableColumns</code> に列を追加し、API 側で <code>order_by</code> を許可する方式です。両方を変更します。</div>
+      <div class="ev t">🔧 Edit <code>InvoiceList.tsx</code> <span class="add">+6</span> <span class="del">-1</span></div>
+      <div class="ev t">🔧 Edit <code>server/invoice/query.go</code> <span class="add">+3</span></div>
+      <div class="ev t">🔧 Bash <code>go test ./server/invoice/...</code> → ok</div>
+      <div class="ev t">🔧 Bash <code>remodev-bg pnpm dev --host 0.0.0.0</code> → :5173</div>
+      <div class="ev t">🔧 Playwright 請求書一覧を開き「支払期日」をクリック → 📷 screenshot-1.png</div>
+      <div class="ev e">🛡 denied: host=fonts.gstatic.com reason=host · <a href="#">許可リストに追加を提案</a></div>
+      <div class="ev a">並び替えが動作することを確認しました。昇順・降順のスクショを撮っています…</div>
+    </div>
+    <div class="composer"><textarea rows="2" placeholder="追加の指示（⌘↵）。作業中に送ると次のターンでまとめて渡されます"></textarea><span class="btn p" style="align-self:flex-end">送信</span></div>
+  </div>
+  <div class="side">
+    <div class="tabs"><span class="on">成果物</span><span>差分 (3)</span><span>プレビュー</span><span>通信</span></div>
+    <div class="sec"><h4>Pull Request</h4>
+      <div class="kv"><span class="dim">PR</span><span><a href="#">#4127</a> draft</span><span class="dim">CI</span><span><span class="chip y">● 実行中</span> test, lint</span><span class="dim">レビュー</span><span class="dim">未依頼</span></div>
+    </div>
+    <div class="sec"><h4>スクリーンショット (2)</h4>
+      <div class="grid">
+        <div class="shot"><div class="top">localhost:5173/invoices?sort=due_date</div><div class="body"><div class="nav"></div><div><div class="row hl" style="width:40%"></div><div class="row"></div><div class="row"></div><div class="row" style="width:80%"></div><div class="row"></div></div></div></div>
+        <div class="dim sm">screenshot-1.png — 「支払期日 ▲」で昇順に並んでいる</div>
+      </div>
+    </div>
+    <div class="sec"><h4>差分の要約</h4>
+      <div class="diff"><div>web/src/features/invoice/InvoiceList.tsx</div><div class="add">+  {key: "dueDate", label: "支払期日"},</div><div class="del">-  const cols = ["issuedAt", "amount"]</div><div class="dim">server/invoice/query.go +3</div></div>
+    </div>
+    <div class="sec"><h4>プレビュー</h4>
+      <div class="kv"><span class="dim">:5173</span><span><a href="#">p5173-7f3a9c21e0.preview.remodev.example ↗</a></span></div>
+      <div class="dim sm" style="margin-top:6px">閲覧できる人だけがアクセス可（ログイン必須）</div>
+    </div>
+    <div class="sec"><h4>環境</h4>
+      <div class="kv sm"><span class="dim">イメージ</span><span>acme/app@sha:91c…（キャッシュ）</span><span class="dim">資源</span><span>4 vCPU / 8 GB</span><span class="dim">自動停止</span><span>30 分無操作で停止（作業領域は 7 日保持）</span></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ 新規 ============ -->
+<section class="screen" id="s-new"><div class="page" style="max-width:760px">
+  <h2>新規セッション</h2>
+  <div class="grid">
+    <label>リポジトリ<input value="acme/app"/></label>
+    <div class="grid" style="grid-template-columns:1fr 1fr">
+      <label>Agent<select><option>default — Claude Code（標準）</option><option>investigator — ログ/DWH を見て原因調査</option><option>flaky-fixer</option></select></label>
+      <label>ベースブランチ<input value="main"/></label>
+    </div>
+    <label>指示<textarea rows="8">請求書一覧の列ヘッダから「支払期日」で並び替えできるようにして。既存のソート UI に合わせて、E2E で確認してスクショを PR に貼って。</textarea></label>
+    <div class="bar sm dim"><span>📎 画像を添付</span><span>·</span><label style="display:flex;gap:6px;align-items:center;width:auto"><input type="checkbox" checked style="width:auto"/> チームに公開</label><span>·</span><span>Slack に結果を通知: #dev-app</span></div>
+    <div><span class="btn p">開始（⌘↵）</span></div>
+  </div>
+</div></section>
+
+<!-- ============ Agents ============ -->
+<section class="screen" id="s-agents"><div class="page">
+  <h2>Agent カタログ</h2>
+  <p class="note">Agent = system prompt + モデル + MCP ツール + 環境 + 通信許可 のプリセット。原則公開で、誰でも複製して改良できる。</p>
+  <div class="grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="card"><b>default</b> <span class="chip">標準</span><p class="dim sm">リポジトリの環境で実装・動作確認・PR 作成まで行う。</p><div class="sm">MCP: なし · 環境: リポジトリ定義</div><div class="dim sm" style="margin-top:6px">今週 412 セッション</div></div>
+    <div class="card"><b>investigator</b> <span class="chip pu">チーム</span><p class="dim sm">Slack の障害報告から起動し、コード・ログ・DWH を見て原因を報告する。</p><div class="sm">MCP: Datadog, Snowflake(読み取り), Slack</div><div class="dim sm" style="margin-top:6px">作成 tanaka · 今週 38</div></div>
+    <div class="card"><b>flaky-fixer</b> <span class="chip pu">チーム</span><p class="dim sm">flaky テストを再現し修正 PR を出す。API から起動。</p><div class="sm">MCP: GitHub Actions ログ</div><div class="dim sm" style="margin-top:6px">作成 sato · 今週 21</div></div>
+    <div class="card"><b>security-scan</b> <span class="chip pu">チーム</span><p class="dim sm">依存の脆弱性を調べて更新 PR を出す。</p><div class="sm">通信: osv.dev 追加許可</div></div>
+    <div class="card"><b>personal</b> <span class="chip">個人権限</span><p class="dim sm">自分の OAuth 接続（Notion, Linear）で動く。Slack から呼べず、セッションは非公開。</p></div>
+    <div class="card" style="display:grid;place-items:center;color:var(--dim)">+ 新しい Agent</div>
+  </div>
+  <h2 style="margin-top:24px">investigator を編集</h2>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <label>System prompt に追加<textarea rows="7">障害の調査担当です。まず Datadog で該当時刻のエラーログを確認し、コードの該当箇所を特定してください。修正が明確な場合のみ PR を作り、それ以外は原因と次の一手を報告してください。</textarea></label>
+    <div class="grid">
+      <label>モデル<select><option>claude-opus（既定）</option></select></label>
+      <label>MCP<input value="datadog (team SA), snowflake (read-only SA), slack"/></label>
+      <label>追加の通信許可<input value="api.datadoghq.com"/></label>
+      <label>権限<select><option>チーム（サービスアカウント）</option><option>個人（呼び出した人の OAuth・非公開）</option></select></label>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ Schedules ============ -->
+<section class="screen" id="s-schedules"><div class="page">
+  <h2>スケジュール</h2>
+  <div class="bar"><span class="btn p">+ 新しいスケジュール</span><span class="dim sm">HTTP API: <code>POST /api/sessions</code>（トークン認証）からも起動可能</span></div>
+  <table>
+    <tr><th>名前</th><th>Agent</th><th>対象</th><th>実行</th><th>通知</th><th>前回</th></tr>
+    <tr><td>依存パッケージのセキュリティスキャン</td><td><span class="chip pu">security-scan</span></td><td>acme/*</td><td>毎週月曜 9:00</td><td>#dev-security</td><td><span class="chip g">PR 2 件</span></td></tr>
+    <tr><td>flaky テスト収集と修正</td><td><span class="chip pu">flaky-fixer</span></td><td>acme/app</td><td>毎日 7:00</td><td>#dev-app</td><td><span class="chip g">PR 1 件</span></td></tr>
+    <tr><td>KPI の週次サマリ</td><td><span class="chip">default</span></td><td>acme/metrics</td><td>毎週金曜 17:00</td><td>#team</td><td><span class="chip">投稿済</span></td></tr>
+    <tr><td>remodev 改善ループ（前日のセッション分析）</td><td><span class="chip pu">outer-loop</span></td><td>naotama2002/remodev</td><td>毎日 6:00</td><td>#remodev</td><td><span class="chip g">PR 1 件</span></td></tr>
+  </table>
+</div></section>
+
+<!-- ============ Integrations ============ -->
+<section class="screen" id="s-integrations"><div class="page" style="max-width:820px">
+  <h2>連携</h2>
+  <p class="note">トークンは control が保管し、セッションごとの nono プロキシだけが注入する。サンドボックスには入らない。</p>
+  <h3 class="sm dim">個人の接続（パーソナル Agent 用）</h3>
+  <table>
+    <tr><td>GitHub</td><td class="dim">naotama2002</td><td><span class="chip g">接続済</span></td><td><span class="btn">解除</span></td></tr>
+    <tr><td>Notion</td><td class="dim">workspace: acme</td><td><span class="chip g">接続済</span></td><td><span class="btn">解除</span></td></tr>
+    <tr><td>Linear</td><td class="dim">—</td><td><span class="chip">未接続</span></td><td><span class="btn p">接続</span></td></tr>
+  </table>
+  <h3 class="sm dim" style="margin-top:20px">チームの接続（管理者）</h3>
+  <table>
+    <tr><td>GitHub App</td><td class="dim">remodev-bot · acme の 14 リポジトリ</td><td><span class="chip g">有効</span></td></tr>
+    <tr><td>Slack</td><td class="dim">acme.slack.com · Socket Mode</td><td><span class="chip g">有効</span></td></tr>
+    <tr><td>Datadog</td><td class="dim">read-only API key</td><td><span class="chip g">有効</span></td></tr>
+    <tr><td>Anthropic</td><td class="dim">API key / サブスク token</td><td><span class="chip g">有効</span></td></tr>
+  </table>
+</div></section>
+
+<!-- ============ Dashboard ============ -->
+<section class="screen" id="s-dashboard"><div class="page">
+  <h2>ダッシュボード <span class="dim sm">過去 30 日</span></h2>
+  <div class="grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="card"><div class="dim sm">remodev 経由の PR 割合</div><div class="stat">57%</div><div class="dim sm">194 / 340 PR</div></div>
+    <div class="card"><div class="dim sm">利用者</div><div class="stat">23</div><div class="dim sm">うちエンジニア以外 6</div></div>
+    <div class="card"><div class="dim sm">セッション</div><div class="stat">1,284</div><div class="dim sm">Slack 41% · Web 38% · 定期 21%</div></div>
+    <div class="card"><div class="dim sm">コスト</div><div class="stat">$312</div><div class="dim sm">LLM $261 · AWS $51</div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:2fr 1fr;margin-top:12px">
+    <div class="card"><div class="dim sm">日別 PR 数（remodev 経由）</div><div class="barchart">
+      <div style="height:30%"></div><div style="height:42%"></div><div style="height:38%"></div><div style="height:55%"></div><div style="height:50%"></div><div style="height:20%"></div><div style="height:15%"></div><div style="height:60%"></div><div style="height:66%"></div><div style="height:62%"></div><div style="height:74%"></div><div style="height:70%"></div><div style="height:25%"></div><div style="height:18%"></div><div style="height:80%"></div><div style="height:85%"></div><div style="height:78%"></div><div style="height:92%"></div><div style="height:88%"></div>
+    </div></div>
+    <div class="card"><div class="dim sm">改善ループの提案（今週）</div>
+      <ul class="sm" style="padding-left:18px;margin:8px 0 0">
+        <li>fonts.gstatic.com の拒否が 37 回 → 許可リスト追加の PR</li>
+        <li>「go が無い」で詰まったセッション 12 件 → acme/api の環境に Go を追加</li>
+        <li>レビューで「テスト不足」指摘 9 件 → default の prompt に追記</li>
+      </ul></div>
+  </div>
+</div></section>
+</div>
+<script>
+const show=()=>{const id=(location.hash.slice(1)||"list");document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id==="s-"+id));document.querySelectorAll("nav a").forEach(a=>a.classList.toggle("on",a.dataset.s===id))};
+addEventListener("hashchange",show);show();
+</script>
+</body>
+</html>

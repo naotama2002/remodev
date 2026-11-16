@@ -17,7 +17,6 @@ import (
 
 	"github.com/naotama2002/remodev/internal/ca"
 	"github.com/naotama2002/remodev/internal/config"
-	"github.com/naotama2002/remodev/internal/github"
 	"github.com/naotama2002/remodev/internal/policy"
 	"github.com/naotama2002/remodev/internal/store"
 )
@@ -40,7 +39,7 @@ type Manager struct {
 	Store *store.Store
 	RT    Runtime
 	CA    *ca.CA
-	GH    *github.Client
+	GH    GitHub
 	Log   *slog.Logger
 	// ArtifactsDir stores files copied out of sandboxes (screenshots etc.).
 	ArtifactsDir string

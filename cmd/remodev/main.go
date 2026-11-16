@@ -16,6 +16,7 @@ import (
 	"github.com/naotama2002/remodev/internal/ca"
 	"github.com/naotama2002/remodev/internal/config"
 	"github.com/naotama2002/remodev/internal/docker"
+	"github.com/naotama2002/remodev/internal/fake"
 	"github.com/naotama2002/remodev/internal/github"
 	"github.com/naotama2002/remodev/internal/server"
 	"github.com/naotama2002/remodev/internal/session"
@@ -44,16 +45,31 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	rt := &session.DockerRuntime{
-		D:             docker.New(cfg.DockerSock),
-		EgressNetwork: cfg.EgressNetwork,
-		Control:       cfg.ControlContainer,
-		OCIRuntime:    cfg.SandboxRuntime,
+	var (
+		rt session.Runtime
+		gh session.GitHub
+	)
+	switch cfg.Runtime {
+	case "fake":
+		fgh := fake.NewGitHub()
+		fgh.AnyRepo = true
+		frt := fake.NewRuntime()
+		frt.Claude = fake.DemoClaude(fgh)
+		rt, gh = frt, fgh
+		log.Warn("REMODEV_RUNTIME=fake: no sandboxes are created; Claude and GitHub are simulated")
+	default:
+		rt = &session.DockerRuntime{
+			D:             docker.New(cfg.DockerSock),
+			EgressNetwork: cfg.EgressNetwork,
+			Control:       cfg.ControlContainer,
+			OCIRuntime:    cfg.SandboxRuntime,
+		}
+		gh = github.New(cfg.GitHubToken)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	m := &session.Manager{Cfg: cfg, Store: st, RT: rt, CA: authority, GH: github.New(cfg.GitHubToken), Log: log,
+	m := &session.Manager{Cfg: cfg, Store: st, RT: rt, CA: authority, GH: gh, Log: log,
 		ArtifactsDir: filepath.Join(cfg.DataDir, "artifacts")}
 	m.Init(ctx)
 

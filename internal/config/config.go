@@ -24,6 +24,9 @@ type Config struct {
 	BaseURL    string // public URL of the UI, e.g. http://localhost:8080
 	DataDir    string
 	DockerSock string
+	// Runtime: docker (default) or fake (in-memory sandbox, GitHub and Claude;
+	// for UI development and end-to-end tests, needs no credentials).
+	Runtime string
 
 	// Docker runtime
 	SandboxImage     string
@@ -76,6 +79,7 @@ func Load() (*Config, error) {
 		BaseURL:           strings.TrimRight(env("REMODEV_BASE_URL", "http://localhost:8080"), "/"),
 		DataDir:           env("REMODEV_DATA_DIR", "./data"),
 		DockerSock:        env("REMODEV_DOCKER_SOCK", "/var/run/docker.sock"),
+		Runtime:           env("REMODEV_RUNTIME", "docker"),
 		SandboxImage:      env("REMODEV_SANDBOX_IMAGE", "remodev-sandbox:dev"),
 		ProxyImage:        env("REMODEV_PROXY_IMAGE", "remodev-nono:dev"),
 		EgressNetwork:     env("REMODEV_EGRESS_NETWORK", "remodev-egress"),
@@ -104,11 +108,20 @@ func Load() (*Config, error) {
 	if c.Retain, err = time.ParseDuration(env("REMODEV_RETAIN", "168h")); err != nil {
 		return nil, fmt.Errorf("REMODEV_RETAIN: %w", err)
 	}
-	if c.GitHubToken == "" {
-		return nil, fmt.Errorf("REMODEV_GITHUB_TOKEN is required")
-	}
-	if c.AnthropicAPIKey == "" && c.ClaudeOAuthToken == "" {
-		return nil, fmt.Errorf("REMODEV_ANTHROPIC_API_KEY or REMODEV_CLAUDE_OAUTH_TOKEN is required")
+	switch c.Runtime {
+	case "docker":
+		if c.GitHubToken == "" {
+			return nil, fmt.Errorf("REMODEV_GITHUB_TOKEN is required")
+		}
+		if c.AnthropicAPIKey == "" && c.ClaudeOAuthToken == "" {
+			return nil, fmt.Errorf("REMODEV_ANTHROPIC_API_KEY or REMODEV_CLAUDE_OAUTH_TOKEN is required")
+		}
+	case "fake":
+		if c.AnthropicAPIKey == "" && c.ClaudeOAuthToken == "" {
+			c.AnthropicAPIKey = "fake"
+		}
+	default:
+		return nil, fmt.Errorf("REMODEV_RUNTIME must be docker or fake")
 	}
 	if len(c.AllowedRepos) == 0 {
 		return nil, fmt.Errorf("REMODEV_ALLOWED_REPOS is required (e.g. myorg/*)")

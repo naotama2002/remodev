@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Artifact, type Checks, type Diff, type Session } from "./api";
+import { ciState, fmtSize, splitDiff } from "./lib";
 
 type Tab = "artifacts" | "diff" | "preview";
 
@@ -8,16 +9,18 @@ export function SidePanel({ s, tick }: { s: Session; tick: number }) {
   const [tab, setTab] = useState<Tab>("artifacts");
   return (
     <div className="side">
-      <div className="tabs">
+      <div className="tabs" role="tablist">
         {(["artifacts", "diff", "preview"] as Tab[]).map((t) => (
-          <span key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
+          <span key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
             {{ artifacts: "成果物", diff: "差分", preview: "プレビュー" }[t]}
           </span>
         ))}
       </div>
-      {tab === "artifacts" && <ArtifactsTab s={s} tick={tick} />}
-      {tab === "diff" && <DiffTab s={s} tick={tick} />}
-      {tab === "preview" && <PreviewTab s={s} />}
+      <div role="tabpanel">
+        {tab === "artifacts" && <ArtifactsTab s={s} tick={tick} />}
+        {tab === "diff" && <DiffTab s={s} tick={tick} />}
+        {tab === "preview" && <PreviewTab s={s} />}
+      </div>
     </div>
   );
 }
@@ -87,10 +90,9 @@ function ArtifactsTab({ s, tick }: { s: Session; tick: number }) {
 }
 
 function CI({ runs }: { runs: Checks["runs"] }) {
-  const pending = runs.filter((r) => r.status !== "completed").length;
-  const failed = runs.filter((r) => r.status === "completed" && !["success", "neutral", "skipped"].includes(r.conclusion));
-  const cls = failed.length ? "r" : pending ? "y" : "g";
-  const label = failed.length ? `✗ ${failed.length} 失敗` : pending ? `● ${pending} 実行中` : "✓ 成功";
+  const st = ciState(runs);
+  const cls = st.kind === "failed" ? "r" : st.kind === "pending" ? "y" : "g";
+  const label = st.kind === "failed" ? `✗ ${st.count} 失敗` : st.kind === "pending" ? `● ${st.count} 実行中` : "✓ 成功";
   return (
     <details className="ci">
       <summary><span className={`chip ${cls}`}>{label}</span> <span className="dim">{runs.length} checks</span></summary>
@@ -158,26 +160,4 @@ function PreviewTab({ s }: { s: Session }) {
       <p className="dim sm">サンドボックス内で 0.0.0.0 に bind したサーバーを開けます（例: <code>remodev-bg npm run dev -- --host 0.0.0.0</code>）。</p>
     </section>
   );
-}
-
-function splitDiff(diff: string) {
-  const files: { name: string; add: number; del: number; lines: string[] }[] = [];
-  let cur: (typeof files)[number] | undefined;
-  for (const line of diff.split("\n")) {
-    if (line.startsWith("diff --git ")) {
-      const m = / b\/(.*)$/.exec(line);
-      cur = { name: m ? m[1] : line, add: 0, del: 0, lines: [] };
-      files.push(cur);
-      continue;
-    }
-    if (!cur || line.startsWith("index ") || line.startsWith("--- ") || line.startsWith("+++ ")) continue;
-    if (line.startsWith("+")) cur.add++;
-    else if (line.startsWith("-")) cur.del++;
-    if (cur.lines.length < 2000) cur.lines.push(line);
-  }
-  return files;
-}
-
-function fmtSize(n: number) {
-  return n < 1024 ? `${n} B` : n < 1 << 20 ? `${(n / 1024).toFixed(1)} KB` : `${(n / (1 << 20)).toFixed(1)} MB`;
 }

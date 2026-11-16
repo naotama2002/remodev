@@ -12,7 +12,7 @@ WORKDIR /src
 COPY go.mod go.sum* ./
 COPY . .
 COPY --from=ui /web/dist ./web/dist
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/remodev ./cmd/remodev
+RUN CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags="-s -w" -o /out/remodev ./cmd/remodev
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/remodev /remodev

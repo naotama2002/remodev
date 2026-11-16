@@ -98,6 +98,14 @@ AWS（低コスト構成の案）:
 - 形: `.remodev/Dockerfile` は CI（GitHub Actions）でビルドし、スキャン後に ECR へ push する。control はリポジトリ/チームに登録されたイメージ（digest 固定）を pull して使うだけにする。未登録なら標準イメージで動かす。
 - 現状（手元・開発段階）: control がその場でビルドし、内容ハッシュでキャッシュする。ビルドがプロキシを通らないのは想定どおりとして許容する。ECR 方式に移ったら、本番では実行時ビルドを無効にする（手元では残す）。
 
+### 成果物と動作確認
+
+- サンドボックスには Debian の Chromium と playwright-core（依存なし・ブラウザのダウンロードなし、npm の sha512 で固定）を入れる。Playwright 本体（テストランナー）は入れない。
+- `remodev-screenshot <url> [name]` で全画面の PNG を `/workspace/artifacts/` に保存する。複雑な操作はエージェントが playwright-core のスクリプトを書く。外部 URL はプロキシ経由、localhost は直接。
+- `/workspace/artifacts/` のファイルは、ターン中 10 秒ごとと終了時に control が取り出し、`<data>/artifacts/<session>/` に保存して `artifact` イベントを出す（1 ファイル 20MB、1 セッション 200 個まで）。サンドボックスや作業領域を消しても残る。
+- 成果物はエージェントが作ったもの＝信用しないデータとして配信する: `Content-Security-Policy: sandbox`、`nosniff`、ファイル名は平坦な英数字のみ。
+- 画面右のパネル: 成果物（PR / CI、スクショ、その他ファイル）、差分（作業中はサンドボックスの `git diff`、停止後は GitHub の compare）、プレビュー。
+
 ### 隔離方式の判断
 
 Claude Code が動く場所は「EC2 上の Docker コンテナ（1 セッション = sandbox + nono の 1 組）」とする。作業者ごとに EC2 は割り当てない。
@@ -119,8 +127,9 @@ Claude Code が動く場所は「EC2 上の Docker コンテナ（1 セッショ
 - [x] 環境定義: `.remodev/Dockerfile` + `.remodev/setup.sh`、内容ハッシュでイメージをキャッシュ（[§5 環境定義](#環境定義)）
 - [ ] 環境定義の高速化: ビルドキャッシュ（Go / npm など）の共有ボリューム、devcontainer.json 対応、古い env イメージの掃除
 - [ ] 環境イメージを CI でビルド → スキャン → ECR 登録し、control は登録済みイメージ（digest 固定）のみ使用。本番では実行時ビルドを無効化
-- [ ] Playwright での動作確認とスクショ、成果物パネル
-- [ ] 差分の表示、CI 状態の表示
+- [x] ブラウザでの動作確認とスクショ（Chromium + playwright-core、`remodev-screenshot`）、成果物パネル（[§5 成果物](#成果物と動作確認)）
+- [x] 差分の表示（作業中はサンドボックスの未コミットを含む、停止後は GitHub）、PR / CI 状態の表示
+- [ ] 成果物を S3 に保存（AWS 構成と同時）、PR 本文へのスクショ添付
 
 ### Phase 2: チームで使える
 - [ ] GitHub ログイン、org / ユーザーでの制限

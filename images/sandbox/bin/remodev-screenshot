@@ -22,7 +22,7 @@ const out = `/workspace/artifacts/${name}.png`;
   const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(url);
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-background-networking", "--disable-component-update", "--no-first-run"],
     // Remote URLs go through the egress proxy like everything else.
     proxy: local ? undefined : process.env.HTTPS_PROXY ? proxyFromEnv(process.env.HTTPS_PROXY) : undefined,
   });

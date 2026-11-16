@@ -42,6 +42,8 @@ type Manager struct {
 	CA    *ca.CA
 	GH    *github.Client
 	Log   *slog.Logger
+	// ArtifactsDir stores files copied out of sandboxes (screenshots etc.).
+	ArtifactsDir string
 
 	mu      sync.Mutex
 	active  map[string]*turnState // sessions with a turn in progress or queued
@@ -362,6 +364,19 @@ func (m *Manager) runTurn(ctx context.Context, id, prompt string) {
 	}
 	var final string
 	var stderr []string
+	syncCtx, stopSync := context.WithCancel(ctx)
+	go func() {
+		t := time.NewTicker(10 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-syncCtx.Done():
+				return
+			case <-t.C:
+				m.syncArtifacts(syncCtx, id)
+			}
+		}
+	}()
 	code, err := m.RT.Exec(ctx, id, args, repoDir, func(line string) {
 		if f := m.handleStreamLine(id, line); f != "" {
 			final = f
@@ -375,6 +390,8 @@ func (m *Manager) runTurn(ctx context.Context, id, prompt string) {
 	case code != 0:
 		m.event(id, "error", fmt.Sprintf("claude exited with %d: %s", code, tail(stderr, 10)), nil)
 	}
+	stopSync()
+	m.syncArtifacts(context.WithoutCancel(ctx), id)
 	m.updatePR(context.WithoutCancel(ctx), id)
 	m.setStatus(id, store.StatusIdle, "")
 	if m.Notify != nil {
@@ -507,6 +524,8 @@ func systemPrompt(s store.Session, a config.Agent) string {
 - To open or update the pull request run: remodev-pr "<title>" "<body markdown>"  (uses the GitHub REST API; do not use gh pr create).
 - If a request is denied by the proxy (HTTP 403 / "not in the allowlist"), do not try to bypass it; explain what access you need.
 - To let the user preview a web server, bind it to 0.0.0.0 and run it in the background (e.g. remodev-bg npm run dev -- --host 0.0.0.0), then tell the user the port.
+- Verify UI changes in a real browser: remodev-screenshot <url> [name] saves a full-page PNG (headless Chromium) to /workspace/artifacts/. For flows, write a script with playwright-core (require('playwright-core'), chromium.launch({executablePath: process.env.CHROMIUM_PATH})) and save screenshots to /workspace/artifacts/.
+- Files in /workspace/artifacts/ (screenshots, HTML reports, logs) are shown to the user next to this conversation. Use descriptive file names.
 - Finish each turn with a short summary of what you did and what is left.`, s.Repo, repoDir, s.Branch, s.BaseBranch)
 	if a.AppendSystemPrompt != "" {
 		p += "\n\n" + a.AppendSystemPrompt

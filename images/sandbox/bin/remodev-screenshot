@@ -1,0 +1,51 @@
+#!/usr/bin/env node
+// Usage: remodev-screenshot <url> [name] [--width=1280] [--height=800] [--wait=ms] [--viewport-only]
+// Saves a PNG to /workspace/artifacts/<name>.png (shown in the remodev UI).
+const { chromium } = require("/usr/local/lib/node_modules/playwright-core");
+const fs = require("fs");
+
+const args = process.argv.slice(2);
+const opts = Object.fromEntries(args.filter((a) => a.startsWith("--")).map((a) => {
+  const [k, v] = a.slice(2).split("=");
+  return [k, v ?? "true"];
+}));
+const [url, rawName] = args.filter((a) => !a.startsWith("--"));
+if (!url) {
+  console.error("usage: remodev-screenshot <url> [name] [--width=1280] [--height=800] [--wait=ms] [--viewport-only]");
+  process.exit(2);
+}
+const name = (rawName || "screenshot-" + new Date().toISOString().replace(/[:.]/g, "-")).replace(/[^A-Za-z0-9._-]/g, "-").replace(/\.png$/, "");
+const out = `/workspace/artifacts/${name}.png`;
+
+(async () => {
+  fs.mkdirSync("/workspace/artifacts", { recursive: true });
+  const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(url);
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
+    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    // Remote URLs go through the egress proxy like everything else.
+    proxy: local ? undefined : process.env.HTTPS_PROXY ? proxyFromEnv(process.env.HTTPS_PROXY) : undefined,
+  });
+  const page = await browser.newPage({
+    viewport: { width: Number(opts.width || 1280), height: Number(opts.height || 800) },
+    ignoreHTTPSErrors: false,
+  });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  const res = await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
+  if (opts.wait) await page.waitForTimeout(Number(opts.wait));
+  const title = await page.title();
+  await page.screenshot({ path: out, fullPage: !opts["viewport-only"] });
+  await browser.close();
+  console.log(`saved ${out} (HTTP ${res ? res.status() : "?"}, title: ${JSON.stringify(title)})`);
+  if (errors.length) console.log("page errors:\n  " + errors.slice(0, 10).join("\n  "));
+})().catch((e) => {
+  console.error(String(e && e.message || e));
+  process.exit(1);
+});
+
+function proxyFromEnv(v) {
+  const u = new URL(v);
+  return { server: `${u.protocol}//${u.host}`, username: decodeURIComponent(u.username), password: decodeURIComponent(u.password) };
+}

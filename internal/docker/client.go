@@ -377,6 +377,15 @@ func (c *Client) ListContainers(ctx context.Context, labels map[string]string) (
 	return out, err
 }
 
+// GetArchive returns a tar stream of path inside the container.
+func (c *Client) GetArchive(ctx context.Context, id, path string) (io.ReadCloser, error) {
+	resp, err := c.raw(ctx, "GET", "/containers/"+url.PathEscape(id)+"/archive?path="+url.QueryEscape(path), nil, "")
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body, nil
+}
+
 // PutArchive uploads a tar archive and extracts it at path inside the container.
 func (c *Client) PutArchive(ctx context.Context, id, path string, tarball []byte) error {
 	resp, err := c.raw(ctx, "PUT", "/containers/"+url.PathEscape(id)+"/archive?path="+url.QueryEscape(path), tarball, "application/x-tar")

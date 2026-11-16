@@ -28,6 +28,32 @@ export interface Event {
   data?: any;
 }
 
+export interface Artifact {
+  name: string;
+  size: number;
+  type: string;
+  modTime: string;
+}
+
+export interface Diff {
+  source: "sandbox" | "github" | "none";
+  diff: string;
+  untracked: string[];
+  truncated: boolean;
+}
+
+export interface CheckRun {
+  name: string;
+  status: string;
+  conclusion: string;
+  html_url: string;
+}
+
+export interface Checks {
+  pr: { html_url: string; number: number; title: string; state: string; draft: boolean; merged_at: string | null } | null;
+  runs: CheckRun[];
+}
+
 export interface Config {
   allowedRepos: string[];
   agents: { name: string; description: string }[];
@@ -55,5 +81,9 @@ export const api = {
   interrupt: (id: string) => call("POST", `/api/sessions/${id}/interrupt`, {}),
   stop: (id: string) => call("POST", `/api/sessions/${id}/stop`, {}),
   remove: (id: string) => call("DELETE", `/api/sessions/${id}`, {}),
+  artifacts: (id: string) => call<Artifact[]>("GET", `/api/sessions/${id}/artifacts`),
+  artifactUrl: (id: string, name: string) => `/api/sessions/${id}/artifacts/${encodeURIComponent(name)}`,
+  diff: (id: string) => call<Diff>("GET", `/api/sessions/${id}/diff`),
+  checks: (id: string) => call<Checks>("GET", `/api/sessions/${id}/checks`),
   events: (id: string) => new EventSource(`/api/sessions/${id}/events`),
 };

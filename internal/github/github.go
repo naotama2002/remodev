@@ -147,9 +147,38 @@ func (c *Client) Repo(ctx context.Context, fullName string) (*Repo, error) {
 }
 
 type PR struct {
-	HTMLURL string `json:"html_url"`
-	State   string `json:"state"`
-	Number  int    `json:"number"`
+	HTMLURL  string  `json:"html_url"`
+	State    string  `json:"state"`
+	Number   int     `json:"number"`
+	Title    string  `json:"title"`
+	Draft    bool    `json:"draft"`
+	MergedAt *string `json:"merged_at"`
+	Head     struct {
+		SHA string `json:"sha"`
+	} `json:"head"`
+}
+
+type CheckRun struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`     // queued | in_progress | completed
+	Conclusion string `json:"conclusion"` // success | failure | neutral | cancelled | skipped | timed_out | action_required
+	HTMLURL    string `json:"html_url"`
+}
+
+// CheckRuns lists check runs for a commit SHA or branch.
+func (c *Client) CheckRuns(ctx context.Context, repo, ref string) ([]CheckRun, error) {
+	var out struct {
+		CheckRuns []CheckRun `json:"check_runs"`
+	}
+	err := c.get(ctx, "/repos/"+repo+"/commits/"+url.PathEscape(ref)+"/check-runs?per_page=100", &out)
+	return out.CheckRuns, err
+}
+
+// CompareDiff returns the unified diff base...head (ErrNotFound if head is not pushed).
+func (c *Client) CompareDiff(ctx context.Context, repo, base, head string) (string, error) {
+	var b []byte
+	err := c.getAccept(ctx, "/repos/"+repo+"/compare/"+escapePath(base)+"..."+escapePath(head), "application/vnd.github.diff", &b)
+	return string(b), err
 }
 
 // FindPR returns the most recent PR whose head is owner:branch, or nil.

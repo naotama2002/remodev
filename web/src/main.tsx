@@ -1,6 +1,7 @@
 import { StrictMode, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, type Config, type Event, type Session } from "./api";
+import { SidePanel } from "./panel";
 import "./style.css";
 
 function useHash(): [string, (h: string) => void] {
@@ -98,7 +99,7 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
   const [s, setS] = useState<Session>();
   const [events, setEvents] = useState<Event[]>([]);
   const [text, setText] = useState("");
-  const [port, setPort] = useState("3000");
+  const [tick, setTick] = useState(0);
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -111,6 +112,7 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
         api.get(id).then(setS);
         onChange();
       }
+      if (ev.type === "artifact" || ev.type === "result" || ev.type === "pr") setTick((t) => t + 1);
     };
     return () => es.close();
   }, [id, onChange]);
@@ -123,7 +125,6 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
     await api.send(id, text);
     setText("");
   };
-  const previewUrl = s.previewBase.replace("{port}", port);
   return (
     <div className="session">
       <header>
@@ -136,10 +137,6 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
         </div>
         <div className="actions">
           {s.prUrl && <a className="button primary" href={s.prUrl} target="_blank">Pull request ↗</a>}
-          <span className="preview">
-            :<input value={port} onChange={(e) => setPort(e.target.value)} size={5} />
-            <a className="button" href={previewUrl} target="_blank">Preview ↗</a>
-          </span>
           {s.busy && <button onClick={() => api.interrupt(id)}>Interrupt</button>}
           {s.status !== "stopped" && s.status !== "deleted" && <button onClick={() => api.stop(id)}>Stop</button>}
           {s.status !== "deleted" && (
@@ -147,18 +144,23 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
           )}
         </div>
       </header>
-      {s.error && <div className="error">{s.error}</div>}
-      <div className="log">
-        {events.map((e) => <EventRow key={e.seq} e={e} />)}
-        <div ref={bottom} />
-      </div>
-      {s.status !== "deleted" && (
-        <div className="composer">
-          <textarea rows={3} value={text} placeholder="Send a follow-up (⌘↵)…" onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); }} />
-          <button className="primary" onClick={send}>Send</button>
+      <div className="body">
+        <div className="left">
+          {s.error && <div className="error">{s.error}</div>}
+          <div className="log">
+            {events.map((e) => <EventRow key={e.seq} e={e} />)}
+            <div ref={bottom} />
+          </div>
+          {s.status !== "deleted" && (
+            <div className="composer">
+              <textarea rows={3} value={text} placeholder="Send a follow-up (⌘↵)…" onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); }} />
+              <button className="primary" onClick={send}>Send</button>
+            </div>
+          )}
         </div>
-      )}
+        <SidePanel s={s} tick={tick} />
+      </div>
     </div>
   );
 }
@@ -188,6 +190,8 @@ function EventRow({ e }: { e: Event }) {
       );
     case "egress":
       return <div className="ev egress">🛡 {e.text}</div>;
+    case "artifact":
+      return <div className="ev system">📎 {e.text}</div>;
     case "pr":
       return <div className="ev pr">🔀 <a href={e.text} target="_blank">{e.text}</a></div>;
     case "error":

@@ -262,6 +262,11 @@ func (m *Manager) ensureUp(ctx context.Context, s store.Session) error {
 		return m.initWorkspace(ctx, s.ID, time.Now())
 	}
 	m.setStatus(s.ID, store.StatusStarting, "")
+	start := time.Now()
+	image, err := m.resolveImage(ctx, s.ID, s.Repo, s.BaseBranch)
+	if err != nil {
+		return err
+	}
 	agent, _ := m.Cfg.Agent(s.Agent)
 	oauth := m.Cfg.AnthropicAPIKey == ""
 	prof, err := policy.Render(policy.Input{
@@ -301,9 +306,8 @@ func (m *Manager) ensureUp(ctx context.Context, s store.Session) error {
 			policy.EnvAnthropic + "=" + anthCred,
 		},
 		SandboxEnv: sandboxEnv, Memory: m.Cfg.SandboxMemory, NanoCPUs: int64(m.Cfg.SandboxCPUs * 1e9),
-		SandboxImage: m.Cfg.SandboxImage, ProxyImage: m.Cfg.ProxyImage,
+		SandboxImage: image, ProxyImage: m.Cfg.ProxyImage,
 	}
-	start := time.Now()
 	if err := m.RT.Up(ctx, spec); err != nil {
 		return err
 	}

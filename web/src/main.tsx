@@ -117,7 +117,9 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
     return () => es.close();
   }, [id, onChange]);
 
-  useEffect(() => bottom.current?.scrollIntoView({ block: "end" }), [events.length]);
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: "end" });
+  }, [events.length]);
 
   if (!s) return null;
   const send = async () => {

@@ -28,7 +28,10 @@ RUN set -eu; \
     echo "$sum  /tmp/gh.tgz" | sha256sum -c -; \
     tar -xzf /tmp/gh.tgz -C /tmp; mv /tmp/gh_${GH_VERSION}_linux_${TARGETARCH}/bin/gh /usr/local/bin/gh; rm -rf /tmp/gh*
 
-RUN useradd -m -u 1001 -s /bin/bash agent && mkdir -p /workspace /etc/remodev && chown agent /workspace
+RUN useradd -m -u 1001 -s /bin/bash agent && mkdir -p /workspace /etc/remodev && chown agent /workspace \
+ # Build-time default (system CAs only) so `.remodev/Dockerfile` builds can use
+ # curl/git; the entrypoint replaces it with system CAs + proxy CA at runtime.
+ && cp /etc/ssl/certs/ca-certificates.crt /etc/remodev/ca-bundle.crt
 
 COPY bin/ /usr/local/bin/
 RUN chmod 755 /usr/local/bin/remodev-*

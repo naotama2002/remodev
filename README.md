@@ -33,6 +33,8 @@ open http://localhost:8080
 
 Claude credential: `REMODEV_ANTHROPIC_API_KEY`, or a subscription token from `claude setup-token` in `REMODEV_CLAUDE_OAUTH_TOKEN`.
 
+Per-repository environment: add `.remodev/Dockerfile` (`FROM ${REMODEV_BASE}`) and optionally `.remodev/setup.sh` to your repository. See [docs/vision.md](docs/vision.md#環境定義) and this repository's own [.remodev/](.remodev/).
+
 Previews: run a dev server bound to `0.0.0.0` in the sandbox and open `http://p<port>-<session>.preview.localhost:8080`.
 
 ## Layout

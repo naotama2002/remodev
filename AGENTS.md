@@ -13,6 +13,7 @@ remodev のリポジトリで作業する人とエージェント向けのルー
 - main は PR 経由のみ。ブランチを切って PR を作る。
 - Go は標準ライブラリのみ。外部依存を足すときは PR で理由を書く。
 - `web/` は表示だけ。ロジックは Go に置く。依存は exact version、install script 無効。
+  - `web/dist/.gitkeep` は `go build`（embed）に必要。vite の出力で消えないよう `web/public/.gitkeep` から複製される。消さないこと。
 - テスト: Go がある環境では `go test ./...`。ホストに Go が無いときは `make test`（Docker の golang イメージで実行）。
   - remodev のサンドボックスでは `.remodev/Dockerfile` で Go が入っているので `go test ./...` を使う（Docker は無い）。
 - サンドボックス環境を変えたら `.remodev/` を更新する（docs/vision.md の「環境定義」参照）。

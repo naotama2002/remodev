@@ -56,6 +56,10 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("POST /api/sessions/{id}/stop", s.stop)
 	api.HandleFunc("DELETE /api/sessions/{id}", s.deleteSession)
 	api.HandleFunc("GET /api/sessions/{id}/events", s.events)
+	api.HandleFunc("GET /api/sessions/{id}/artifacts", s.listArtifacts)
+	api.HandleFunc("GET /api/sessions/{id}/artifacts/{name}", s.getArtifact)
+	api.HandleFunc("GET /api/sessions/{id}/diff", s.diff)
+	api.HandleFunc("GET /api/sessions/{id}/checks", s.checks)
 	api.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	if s.UI != nil {
 		api.Handle("GET /", spa(s.UI))
@@ -200,6 +204,68 @@ func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]bool{"ok": true})
+}
+
+func (s *Server) listArtifacts(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.M.Store.Get(r.PathValue("id")); !ok {
+		writeErr(w, 404, session.ErrNotFound)
+		return
+	}
+	list, err := s.M.Artifacts(r.PathValue("id"))
+	if err != nil {
+		writeErr(w, 500, err)
+		return
+	}
+	writeJSON(w, 200, list)
+}
+
+// getArtifact serves a stored artifact. Artifacts are produced by the agent
+// and therefore untrusted: they are sandboxed with CSP so HTML cannot run
+// script against the control plane origin.
+func (s *Server) getArtifact(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.M.Store.Get(r.PathValue("id")); !ok {
+		writeErr(w, 404, session.ErrNotFound)
+		return
+	}
+	p, err := s.M.ArtifactPath(r.PathValue("id"), r.PathValue("name"))
+	if err != nil {
+		writeErr(w, 400, err)
+		return
+	}
+	h := w.Header()
+	h.Set("Content-Security-Policy", "sandbox; default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline'; media-src 'self'")
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Cache-Control", "private, max-age=60")
+	if r.URL.Query().Get("download") == "1" {
+		h.Set("Content-Disposition", "attachment")
+	}
+	http.ServeFile(w, r, p)
+}
+
+func (s *Server) diff(w http.ResponseWriter, r *http.Request) {
+	d, err := s.M.Diff(r.Context(), r.PathValue("id"))
+	if errors.Is(err, session.ErrNotFound) {
+		writeErr(w, 404, err)
+		return
+	}
+	if err != nil {
+		writeErr(w, 502, err)
+		return
+	}
+	writeJSON(w, 200, d)
+}
+
+func (s *Server) checks(w http.ResponseWriter, r *http.Request) {
+	c, err := s.M.Checks(r.Context(), r.PathValue("id"))
+	if errors.Is(err, session.ErrNotFound) {
+		writeErr(w, 404, err)
+		return
+	}
+	if err != nil {
+		writeErr(w, 502, err)
+		return
+	}
+	writeJSON(w, 200, c)
 }
 
 // events streams the session log as Server-Sent Events. Clients resume with

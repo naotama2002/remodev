@@ -28,6 +28,19 @@ RUN set -eu; \
     echo "$sum  /tmp/gh.tgz" | sha256sum -c -; \
     tar -xzf /tmp/gh.tgz -C /tmp; mv /tmp/gh_${GH_VERSION}_linux_${TARGETARCH}/bin/gh /usr/local/bin/gh; rm -rf /tmp/gh*
 
+# Browser verification: Debian's Chromium + playwright-core (no deps, no
+# browser download). The tarball is pinned by its npm sha512 integrity.
+ARG PLAYWRIGHT_CORE_VERSION=1.65.0
+ARG PLAYWRIGHT_CORE_SHA512=vNSKgH6YqtN7cdT/L334zo0a+YwkrpicyrHJlWWPIm/Q+Nn2SWInil01oT0mbu96U4GgoRtCYQD9CzJQgju+lA==
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends chromium fonts-noto-cjk fonts-noto-color-emoji >/dev/null \
+ && rm -rf /var/lib/apt/lists/* \
+ && curl -fsSL -o /tmp/pwc.tgz "https://registry.npmjs.org/playwright-core/-/playwright-core-${PLAYWRIGHT_CORE_VERSION}.tgz" \
+ && test "$(openssl dgst -sha512 -binary /tmp/pwc.tgz | openssl base64 -A)" = "$PLAYWRIGHT_CORE_SHA512" \
+ && npm install -g --ignore-scripts --no-audit --no-fund /tmp/pwc.tgz >/dev/null && rm /tmp/pwc.tgz
+ENV CHROMIUM_PATH=/usr/bin/chromium \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    NODE_PATH=/usr/local/lib/node_modules
+
 RUN useradd -m -u 1001 -s /bin/bash agent && mkdir -p /workspace /etc/remodev && chown agent /workspace \
  # Build-time default (system CAs only) so `.remodev/Dockerfile` builds can use
  # curl/git; the entrypoint replaces it with system CAs + proxy CA at runtime.

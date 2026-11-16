@@ -53,7 +53,8 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	m := &session.Manager{Cfg: cfg, Store: st, RT: rt, CA: authority, GH: github.New(cfg.GitHubToken), Log: log}
+	m := &session.Manager{Cfg: cfg, Store: st, RT: rt, CA: authority, GH: github.New(cfg.GitHubToken), Log: log,
+		ArtifactsDir: filepath.Join(cfg.DataDir, "artifacts")}
 	m.Init(ctx)
 
 	go func() {

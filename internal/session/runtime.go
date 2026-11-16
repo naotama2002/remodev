@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -27,6 +28,8 @@ type Runtime interface {
 	// Subnets returns CIDRs of the session's private network (used to refuse
 	// sandbox-originated requests to the control plane).
 	Subnets(ctx context.Context, id string) ([]string, error)
+	// Archive returns a tar stream of a path in the sandbox (docker.ErrNotFound if missing).
+	Archive(ctx context.Context, id, path string) (io.ReadCloser, error)
 	// Alive reports whether the sandbox is running.
 	Alive(ctx context.Context, id string) bool
 	// FollowEgress streams proxy log lines until ctx ends.
@@ -183,6 +186,11 @@ func (r *DockerRuntime) Destroy(ctx context.Context, id string) error {
 func (r *DockerRuntime) Exec(ctx context.Context, id string, cmd []string, workdir string, onStdout, onStderr func(string)) (int, error) {
 	_, _, sbx, _ := names(id)
 	return r.D.Exec(ctx, sbx, docker.ExecSpec{Cmd: cmd, User: "agent", WorkingDir: workdir}, onStdout, onStderr)
+}
+
+func (r *DockerRuntime) Archive(ctx context.Context, id, path string) (io.ReadCloser, error) {
+	_, _, sbx, _ := names(id)
+	return r.D.GetArchive(ctx, sbx, path)
 }
 
 func (r *DockerRuntime) Spawn(ctx context.Context, id string, cmd []string, workdir string) error {

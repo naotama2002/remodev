@@ -1,6 +1,7 @@
 import { StrictMode, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, type Config, type Event, type Session } from "./api";
+import { appendEvent, sessionRoute } from "./lib";
 import { SidePanel } from "./panel";
 import "./style.css";
 
@@ -25,7 +26,7 @@ function App() {
     const t = setInterval(refresh, 5000);
     return () => clearInterval(t);
   }, [refresh]);
-  const current = route.startsWith("s/") ? route.slice(2) : "";
+  const current = sessionRoute(route);
   return (
     <div className="app">
       <aside>
@@ -33,7 +34,7 @@ function App() {
         <button className="primary" onClick={() => go("")}>+ New session</button>
         <ul>
           {sessions.map((s) => (
-            <li key={s.id} className={s.id === current ? "active" : ""} onClick={() => go("s/" + s.id)}>
+            <li key={s.id} data-testid="session-item" className={s.id === current ? "active" : ""} onClick={() => go("s/" + s.id)}>
               <span className={`dot ${s.busy ? "running" : s.status}`} />
               <div>
                 <div className="title">{s.title}</div>
@@ -107,7 +108,7 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
     const es = api.events(id);
     es.onmessage = (m) => {
       const ev: Event = JSON.parse(m.data);
-      setEvents((prev) => (prev.length && prev[prev.length - 1].seq >= ev.seq ? prev : [...prev, ev]));
+      setEvents((prev) => appendEvent(prev, ev));
       if (ev.type === "status" || ev.type === "pr" || ev.type === "result") {
         api.get(id).then(setS);
         onChange();
@@ -128,7 +129,7 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
     setText("");
   };
   return (
-    <div className="session">
+    <div className="session" data-testid="session-view">
       <header>
         <div>
           <h2>{s.title}</h2>

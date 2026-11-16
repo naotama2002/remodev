@@ -131,6 +131,11 @@ Claude Code が動く場所は「EC2 上の Docker コンテナ（1 セッショ
 - [x] 差分の表示（作業中はサンドボックスの未コミットを含む、停止後は GitHub）、PR / CI 状態の表示
 - [ ] 成果物を S3 に保存（AWS 構成と同時）、PR 本文へのスクショ添付
 
+### 品質の土台
+- [x] テスト: Go（fake の Runtime / GitHub / Claude で Manager と HTTP API を振る舞いテスト、-race）、Web（純粋ロジックの単体テスト + 型チェック）、ブラウザ E2E（fake モードの本物のバイナリを Chromium で操作）
+- [x] CI（GitHub Actions、アクションは SHA で固定）
+- [x] `REMODEV_RUNTIME=fake`: 認証情報なしで control と UI を動かすモード（UI 開発と E2E 用）
+
 ### Phase 2: チームで使える
 - [ ] GitHub ログイン、org / ユーザーでの制限
 - [ ] セッションの公開範囲（公開 / 非公開）

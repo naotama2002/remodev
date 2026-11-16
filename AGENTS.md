@@ -14,7 +14,15 @@ remodev のリポジトリで作業する人とエージェント向けのルー
 - Go は標準ライブラリのみ。外部依存を足すときは PR で理由を書く。
 - `web/` は表示だけ。ロジックは Go に置く。依存は exact version、install script 無効。
   - `web/dist/.gitkeep` は `go build`（embed）に必要。vite の出力で消えないよう `web/public/.gitkeep` から複製される。消さないこと。
-- テスト: Go がある環境では `go test ./...`。ホストに Go が無いときは `make test`（Docker の golang イメージで実行）。
-  - remodev のサンドボックスでは `.remodev/Dockerfile` で Go が入っているので `go test ./...` を使う（Docker は無い）。
+- テスト（変更したら必ず実行し、壊さない。CI でも同じものが走る）:
+  - `make test` = `test-go`（Go, -race）+ `test-web`（型チェック + `web/src/*.test.ts`）+ `test-e2e`（ブラウザ E2E）。ホストに必要なのは Docker だけ。
+  - サンドボックス内（Go あり・Docker なし）では `go test ./...` と `cd web && pnpm typecheck && pnpm test`。
+- テストの方針（テストがすぐ壊れるなら構造が悪いと考える）:
+  - 振る舞いをテストする。Go は `internal/testenv`（fake の Runtime / GitHub / Claude で組んだ本物の Manager + HTTP サーバー）を通して API とイベントを検証する。内部関数や private な状態に依存しない。
+  - 外部依存（Docker・GitHub・Claude）は `session.Runtime` / `session.GitHub` のインターフェース越しにだけ使い、`internal/fake` で置き換える。新しい依存も同じ形にする。
+  - UI のロジックは `web/src/lib.ts`（React/DOM なし）に出して単体テストする。コンポーネントには業務ロジックを書かない。
+  - E2E（`web/e2e/`）は `REMODEV_RUNTIME=fake` の本物のバイナリをブラウザで操作し、ユーザーに見えるもの（role / label / 表示テキスト）で検証する。CSS クラスに依存しない。未捕捉の JS エラーは失敗にする。
+  - 不具合を直すときは、先にそれを再現するテストを書く。
+- `REMODEV_RUNTIME=fake`（`make fake`）で、認証情報なしに UI を動かせる。
 - サンドボックス環境を変えたら `.remodev/` を更新する（docs/vision.md の「環境定義」参照）。
 - ダウンロードするバイナリとベースイメージはバージョンと sha256 で固定する。

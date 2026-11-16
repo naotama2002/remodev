@@ -25,6 +25,11 @@ if [ ! -d /workspace/repo/.git ]; then
   cd /workspace/repo
   git checkout -q -b "$REMODEV_BRANCH"
   echo "checked out $REMODEV_BRANCH from $REMODEV_BASE"
+  if [ -x .remodev/setup.sh ] || [ -f .remodev/setup.sh ]; then
+    echo "running .remodev/setup.sh ..."
+    bash .remodev/setup.sh
+    echo "setup done"
+  fi
 else
   cd /workspace/repo
   echo "workspace restored ($(git rev-parse --abbrev-ref HEAD))"

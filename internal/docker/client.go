@@ -111,6 +111,59 @@ func (c *Client) ImageExists(ctx context.Context, ref string) (bool, error) {
 	return err == nil, err
 }
 
+// Build builds an image from a tar build context. onLine receives build output.
+func (c *Client) Build(ctx context.Context, context []byte, tag string, buildArgs map[string]string, onLine func(string)) error {
+	args, _ := json.Marshal(buildArgs)
+	q := url.Values{"t": {tag}, "rm": {"1"}, "forcerm": {"1"}, "buildargs": {string(args)}}
+	resp, err := c.raw(ctx, "POST", "/build?"+q.Encode(), context, "application/x-tar")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	dec := json.NewDecoder(resp.Body)
+	var partial string
+	for {
+		var m struct {
+			Stream      string `json:"stream"`
+			Error       string `json:"error"`
+			ErrorDetail struct {
+				Message string `json:"message"`
+			} `json:"errorDetail"`
+		}
+		if err := dec.Decode(&m); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
+		if m.Error != "" {
+			return fmt.Errorf("build failed: %s", m.Error)
+		}
+		partial += m.Stream
+		for {
+			i := strings.IndexByte(partial, '\n')
+			if i < 0 {
+				break
+			}
+			if line := strings.TrimRight(partial[:i], "\r"); line != "" && onLine != nil {
+				onLine(line)
+			}
+			partial = partial[i+1:]
+		}
+	}
+	if ok, err := c.ImageExists(ctx, tag); err != nil || !ok {
+		return fmt.Errorf("build finished but image %s is missing (%v)", tag, err)
+	}
+	return nil
+}
+
+// ImageID returns the image ID of ref.
+func (c *Client) ImageID(ctx context.Context, ref string) (string, error) {
+	var info struct{ Id string }
+	err := c.do(ctx, "GET", "/images/"+url.PathEscape(ref)+"/json", nil, &info)
+	return info.Id, err
+}
+
 // ---- networks ---------------------------------------------------------------
 
 type NetworkSpec struct {

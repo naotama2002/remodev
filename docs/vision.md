@@ -106,6 +106,23 @@ AWS（低コスト構成の案）:
 - 成果物はエージェントが作ったもの＝信用しないデータとして配信する: `Content-Security-Policy: sandbox`、`nosniff`、ファイル名は平坦な英数字のみ。
 - 画面右のパネル: 成果物（PR / CI、スクショ、その他ファイル）、差分（作業中はサンドボックスの `git diff`、停止後は GitHub の compare）、プレビュー。
 
+### 認証と公開範囲
+
+- **ログイン:** control 自身が GitHub OAuth App でログインさせる（`REMODEV_AUTH=github`）。`REMODEV_ALLOWED_ORGS`（org のメンバー、`read:org` で確認）か `REMODEV_ALLOWED_USERS` に含まれる人だけ使える。GitHub のアクセストークンはログイン時のプロフィール確認にだけ使い、保存しない。
+  - ALB + OIDC に寄せず control で持つ理由: 手元（compose）でも AWS でも同じ挙動・同じテストで確認でき、GitHub の org メンバーシップで判定できるため。
+- **セッション Cookie:** HMAC 署名（鍵は `<data>/auth.key`）、HttpOnly・SameSite=Lax、7 日。変更系 API は JSON 必須（CSRF 対策）。OAuth の state はログイン試行ごとに別 Cookie（並行タブや favicon の取得で壊れないように）。
+- **公開範囲:**
+
+| | 作成者 | チームの他メンバー |
+|---|---|---|
+| チーム（既定） | すべて | 閲覧・追加の指示・中断・停止 |
+| 非公開 | すべて | 存在自体が見えない（404） |
+
+  削除と公開範囲の変更は作成者だけ。
+- **プレビュー:** プレビューのホスト（`p<port>-<id>.<preview domain>`）にはメインの Cookie を送らない。メイン側で閲覧権限を確認して 1 分間有効のチケットを発行し、プレビュー側でそのセッション専用の Cookie に交換する。サンドボックスへ転送するときは remodev の Cookie を取り除く。
+- 開発用: `REMODEV_RUNTIME=fake` + `REMODEV_AUTH=github` では、任意のユーザー名でログインできる偽のログイン画面になる（`outsider*` は org 外として扱う）。E2E はこれで 2 人のユーザーを操作する。
+- 残り: Slack から使う場合の本人確認（Slack ユーザー ↔ GitHub ログインの対応）、個人権限で動く Agent（Ubie のパーソナルエージェント相当）は Phase 3。
+
 ### 隔離方式の判断
 
 Claude Code が動く場所は「EC2 上の Docker コンテナ（1 セッション = sandbox + nono の 1 組）」とする。作業者ごとに EC2 は割り当てない。
@@ -137,8 +154,8 @@ Claude Code が動く場所は「EC2 上の Docker コンテナ（1 セッショ
 - [x] `REMODEV_RUNTIME=fake`: 認証情報なしで control と UI を動かすモード（UI 開発と E2E 用）
 
 ### Phase 2: チームで使える
-- [ ] GitHub ログイン、org / ユーザーでの制限
-- [ ] セッションの公開範囲（公開 / 非公開）
+- [x] GitHub ログイン、org / ユーザーでの制限（[§5 認証と公開範囲](#認証と公開範囲)）
+- [x] セッションの公開範囲（チーム / 非公開）、プレビューも閲覧権限でガード
 - [ ] Slack（スレッドから起動、結果をスレッドに返信、追加の指示）
 - [ ] AWS 構成（Terraform）
 - [ ] GitHub App のトークン（リポジトリ単位、短命）

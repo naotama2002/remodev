@@ -44,6 +44,12 @@ type Manager struct {
 	// ArtifactsDir stores files copied out of sandboxes (screenshots etc.).
 	ArtifactsDir string
 
+	// lifecycle: background work (turns, egress log followers) is bound to
+	// ctx and tracked by wg so Close can stop it and wait.
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+
 	mu      sync.Mutex
 	active  map[string]*turnState // sessions with a turn in progress or queued
 	subnets []*net.IPNet
@@ -62,6 +68,7 @@ type CreateRequest struct {
 	Agent      string `json:"agent,omitempty"`
 	BaseBranch string `json:"baseBranch,omitempty"`
 	Title      string `json:"title,omitempty"`
+	Visibility string `json:"visibility,omitempty"` // team (default) | private
 	CreatedBy  string `json:"-"`
 	Source     string `json:"-"`
 	SlackChan  string `json:"-"`
@@ -82,6 +89,7 @@ func randToken() string {
 
 func (m *Manager) Init(ctx context.Context) {
 	m.active = map[string]*turnState{}
+	m.ctx, m.cancel = context.WithCancel(context.WithoutCancel(ctx))
 	// Recover from a crash/redeploy: turns that were running are lost, but the
 	// Claude Code transcript lives in the workspace volume and can be resumed.
 	for _, s := range m.Store.List() {
@@ -92,9 +100,25 @@ func (m *Manager) Init(ctx context.Context) {
 		}
 		if s.Status != store.StatusStopped && s.Status != store.StatusDeleted && s.Status != store.StatusFailed {
 			m.refreshSubnets(ctx, s.ID)
-			go m.followEgress(s.ID)
+			m.goBackground(func() { m.followEgress(s.ID) })
 		}
 	}
+}
+
+// goBackground runs fn as tracked background work.
+func (m *Manager) goBackground(fn func()) {
+	m.wg.Add(1)
+	go func() {
+		defer m.wg.Done()
+		fn()
+	}()
+}
+
+// Close interrupts running turns, stops background work and waits for it.
+// Interrupted turns are reported on the next start (see Init).
+func (m *Manager) Close() {
+	m.cancel()
+	m.wg.Wait()
 }
 
 func (m *Manager) event(id, typ, text string, data any) {
@@ -142,6 +166,12 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (store.Session,
 	if !branchRe.MatchString(req.BaseBranch) {
 		return store.Session{}, fmt.Errorf("invalid base branch")
 	}
+	if req.Visibility == "" {
+		req.Visibility = VisibilityTeam
+	}
+	if !validVisibility(req.Visibility) {
+		return store.Session{}, fmt.Errorf("visibility must be team or private")
+	}
 	title := req.Title
 	if title == "" {
 		title = firstLine(req.Prompt, 80)
@@ -149,7 +179,7 @@ func (m *Manager) Create(ctx context.Context, req CreateRequest) (store.Session,
 	id := newID()
 	s := &store.Session{
 		ID: id, Title: title, Repo: repo.FullName, BaseBranch: req.BaseBranch,
-		Branch: "remodev/" + id, Agent: orDefault(req.Agent), CreatedBy: req.CreatedBy,
+		Branch: "remodev/" + id, Agent: orDefault(req.Agent), CreatedBy: req.CreatedBy, Visibility: req.Visibility,
 		Status: store.StatusStarting, Source: req.Source, SlackChannel: req.SlackChan, SlackThread: req.SlackTS,
 	}
 	if err := m.Store.Create(s); err != nil {
@@ -173,6 +203,18 @@ func firstLine(s string, n int) string {
 		return string(r[:n]) + "…"
 	}
 	return s
+}
+
+// SetVisibility changes who can see the session.
+func (m *Manager) SetVisibility(id, v, by string) (store.Session, error) {
+	if !validVisibility(v) {
+		return store.Session{}, fmt.Errorf("visibility must be team or private")
+	}
+	s, err := m.Store.Update(id, func(s *store.Session) { s.Visibility = v })
+	if err == nil {
+		m.event(id, "system", fmt.Sprintf("%s changed visibility to %s", by, v), nil)
+	}
+	return s, err
 }
 
 // Send adds a follow-up message. It is queued if a turn is in progress.
@@ -200,10 +242,14 @@ func (m *Manager) enqueue(id, prompt string) {
 		m.event(id, "system", "queued: will run after the current turn", nil)
 		return
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	if m.ctx.Err() != nil { // closing
+		m.mu.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(m.ctx)
 	m.active[id] = &turnState{cancel: cancel}
 	m.mu.Unlock()
-	go m.worker(ctx, id, prompt)
+	m.goBackground(func() { m.worker(ctx, id, prompt) })
 }
 
 func (m *Manager) worker(ctx context.Context, id, prompt string) {
@@ -313,7 +359,7 @@ func (m *Manager) ensureUp(ctx context.Context, s store.Session) error {
 		return err
 	}
 	m.refreshSubnets(ctx, s.ID)
-	go m.followEgress(s.ID)
+	m.goBackground(func() { m.followEgress(s.ID) })
 	return m.initWorkspace(ctx, s.ID, start)
 }
 
@@ -537,7 +583,7 @@ func systemPrompt(s store.Session, a config.Agent) string {
 var denyRe = regexp.MustCompile(`(?i)\b(denied|deny)\b`)
 
 func (m *Manager) followEgress(id string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 24*time.Hour)
+	ctx, cancel := context.WithTimeout(m.ctx, 24*time.Hour)
 	defer cancel()
 	_ = m.RT.FollowEgress(ctx, id, time.Now(), func(line string) {
 		if !denyRe.MatchString(line) {

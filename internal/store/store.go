@@ -38,6 +38,7 @@ type Session struct {
 	Branch          string    `json:"branch"`
 	Agent           string    `json:"agent"`
 	CreatedBy       string    `json:"createdBy"`
+	Visibility      string    `json:"visibility"` // team | private ("" = team, for old records)
 	Status          Status    `json:"status"`
 	Error           string    `json:"error,omitempty"`
 	PRURL           string    `json:"prUrl,omitempty"`

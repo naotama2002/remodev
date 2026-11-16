@@ -46,6 +46,13 @@ type Config struct {
 	NetworkProfile    string // nono network profile for the sandbox
 	ExtraAllowDomains []string
 
+	// Authentication: none (single local user) | github
+	AuthMode           string
+	GitHubClientID     string
+	GitHubClientSecret string
+	AllowedOrgs        []string
+	AllowedUsers       []string
+
 	// Previews: p<port>-<session>.<PreviewDomain>
 	PreviewDomain string
 
@@ -75,24 +82,29 @@ func list(k string) []string {
 
 func Load() (*Config, error) {
 	c := &Config{
-		Listen:            env("REMODEV_LISTEN", ":8080"),
-		BaseURL:           strings.TrimRight(env("REMODEV_BASE_URL", "http://localhost:8080"), "/"),
-		DataDir:           env("REMODEV_DATA_DIR", "./data"),
-		DockerSock:        env("REMODEV_DOCKER_SOCK", "/var/run/docker.sock"),
-		Runtime:           env("REMODEV_RUNTIME", "docker"),
-		SandboxImage:      env("REMODEV_SANDBOX_IMAGE", "remodev-sandbox:dev"),
-		ProxyImage:        env("REMODEV_PROXY_IMAGE", "remodev-nono:dev"),
-		EgressNetwork:     env("REMODEV_EGRESS_NETWORK", "remodev-egress"),
-		ControlContainer:  env("REMODEV_CONTROL_CONTAINER", ""),
-		SandboxRuntime:    env("REMODEV_SANDBOX_RUNTIME", ""),
-		GitHubToken:       env("REMODEV_GITHUB_TOKEN", ""),
-		AnthropicAPIKey:   env("REMODEV_ANTHROPIC_API_KEY", ""),
-		ClaudeOAuthToken:  env("REMODEV_CLAUDE_OAUTH_TOKEN", ""),
-		AllowedRepos:      list("REMODEV_ALLOWED_REPOS"),
-		AllowGraphQL:      env("REMODEV_ALLOW_GRAPHQL", "false") == "true",
-		NetworkProfile:    env("REMODEV_NETWORK_PROFILE", "developer"),
-		ExtraAllowDomains: list("REMODEV_ALLOW_DOMAINS"),
-		PreviewDomain:     env("REMODEV_PREVIEW_DOMAIN", "preview.localhost:8080"),
+		Listen:             env("REMODEV_LISTEN", ":8080"),
+		BaseURL:            strings.TrimRight(env("REMODEV_BASE_URL", "http://localhost:8080"), "/"),
+		DataDir:            env("REMODEV_DATA_DIR", "./data"),
+		DockerSock:         env("REMODEV_DOCKER_SOCK", "/var/run/docker.sock"),
+		Runtime:            env("REMODEV_RUNTIME", "docker"),
+		SandboxImage:       env("REMODEV_SANDBOX_IMAGE", "remodev-sandbox:dev"),
+		ProxyImage:         env("REMODEV_PROXY_IMAGE", "remodev-nono:dev"),
+		EgressNetwork:      env("REMODEV_EGRESS_NETWORK", "remodev-egress"),
+		ControlContainer:   env("REMODEV_CONTROL_CONTAINER", ""),
+		SandboxRuntime:     env("REMODEV_SANDBOX_RUNTIME", ""),
+		GitHubToken:        env("REMODEV_GITHUB_TOKEN", ""),
+		AnthropicAPIKey:    env("REMODEV_ANTHROPIC_API_KEY", ""),
+		ClaudeOAuthToken:   env("REMODEV_CLAUDE_OAUTH_TOKEN", ""),
+		AllowedRepos:       list("REMODEV_ALLOWED_REPOS"),
+		AllowGraphQL:       env("REMODEV_ALLOW_GRAPHQL", "false") == "true",
+		NetworkProfile:     env("REMODEV_NETWORK_PROFILE", "developer"),
+		ExtraAllowDomains:  list("REMODEV_ALLOW_DOMAINS"),
+		PreviewDomain:      env("REMODEV_PREVIEW_DOMAIN", "preview.localhost:8080"),
+		AuthMode:           env("REMODEV_AUTH", "none"),
+		GitHubClientID:     env("REMODEV_GITHUB_CLIENT_ID", ""),
+		GitHubClientSecret: env("REMODEV_GITHUB_CLIENT_SECRET", ""),
+		AllowedOrgs:        list("REMODEV_ALLOWED_ORGS"),
+		AllowedUsers:       list("REMODEV_ALLOWED_USERS"),
 	}
 	var err error
 	if c.SandboxMemory, err = strconv.ParseInt(env("REMODEV_SANDBOX_MEMORY_MB", "4096"), 10, 64); err != nil {
@@ -122,6 +134,18 @@ func Load() (*Config, error) {
 		}
 	default:
 		return nil, fmt.Errorf("REMODEV_RUNTIME must be docker or fake")
+	}
+	switch c.AuthMode {
+	case "none":
+	case "github":
+		if c.Runtime != "fake" && (c.GitHubClientID == "" || c.GitHubClientSecret == "") {
+			return nil, fmt.Errorf("REMODEV_AUTH=github needs REMODEV_GITHUB_CLIENT_ID and REMODEV_GITHUB_CLIENT_SECRET")
+		}
+		if len(c.AllowedOrgs) == 0 && len(c.AllowedUsers) == 0 {
+			return nil, fmt.Errorf("REMODEV_AUTH=github needs REMODEV_ALLOWED_ORGS or REMODEV_ALLOWED_USERS")
+		}
+	default:
+		return nil, fmt.Errorf("REMODEV_AUTH must be none or github")
 	}
 	if len(c.AllowedRepos) == 0 {
 		return nil, fmt.Errorf("REMODEV_ALLOWED_REPOS is required (e.g. myorg/*)")

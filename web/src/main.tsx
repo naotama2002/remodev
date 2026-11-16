@@ -1,7 +1,7 @@
 import { StrictMode, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { api, type Config, type Event, type Session } from "./api";
-import { appendEvent, sessionRoute } from "./lib";
+import { api, type Config, type Event, type Session, type Visibility } from "./api";
+import { appendEvent, filterSessions, sessionRoute, type SessionFilter } from "./lib";
 import { SidePanel } from "./panel";
 import "./style.css";
 
@@ -27,22 +27,39 @@ function App() {
     return () => clearInterval(t);
   }, [refresh]);
   const current = sessionRoute(route);
+  const [filter, setFilter] = useState<SessionFilter>((localStorage.getItem("filter") as SessionFilter) ?? "all");
+  const shown = cfg ? filterSessions(sessions, filter, cfg.user.login) : sessions;
   return (
     <div className="app">
       <aside>
         <h1>remodev</h1>
         <button className="primary" onClick={() => go("")}>+ New session</button>
+        <div className="filter" role="group" aria-label="表示するセッション">
+          {(["all", "mine"] as SessionFilter[]).map((f) => (
+            <button key={f} aria-pressed={filter === f} className={filter === f ? "on" : ""}
+              onClick={() => { setFilter(f); localStorage.setItem("filter", f); }}>
+              {f === "all" ? "チーム" : "自分"}
+            </button>
+          ))}
+        </div>
         <ul>
-          {sessions.map((s) => (
+          {shown.map((s) => (
             <li key={s.id} data-testid="session-item" className={s.id === current ? "active" : ""} onClick={() => go("s/" + s.id)}>
               <span className={`dot ${s.busy ? "running" : s.status}`} />
               <div>
-                <div className="title">{s.title}</div>
+                <div className="title">{s.visibility === "private" && <span title="非公開">🔒 </span>}{s.title}</div>
                 <div className="meta">{s.repo} · {s.createdBy}</div>
               </div>
             </li>
           ))}
         </ul>
+        {cfg?.authEnabled && (
+          <div className="me">
+            {cfg.user.avatarUrl && <img src={cfg.user.avatarUrl} alt="" />}
+            <span>{cfg.user.login}</span>
+            <button onClick={() => api.logout().then(() => location.reload())}>ログアウト</button>
+          </div>
+        )}
       </aside>
       <main>
         {current ? (
@@ -59,6 +76,7 @@ function NewSession({ cfg, onCreated }: { cfg: Config; onCreated: (s: Session) =
   const [repo, setRepo] = useState(localStorage.getItem("repo") ?? "");
   const [prompt, setPrompt] = useState("");
   const [agent, setAgent] = useState("default");
+  const [visibility, setVisibility] = useState<Visibility>("team");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = async () => {
@@ -66,7 +84,7 @@ function NewSession({ cfg, onCreated }: { cfg: Config; onCreated: (s: Session) =
     setErr("");
     try {
       localStorage.setItem("repo", repo);
-      onCreated(await api.create({ repo, prompt, agent }));
+      onCreated(await api.create({ repo, prompt, agent, visibility }));
     } catch (e) {
       setErr(String((e as Error).message));
     } finally {
@@ -88,6 +106,10 @@ function NewSession({ cfg, onCreated }: { cfg: Config; onCreated: (s: Session) =
         <textarea rows={8} value={prompt} onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit(); }} />
       </label>
+      <label className="check">
+        <input type="checkbox" checked={visibility === "private"} onChange={(e) => setVisibility(e.target.checked ? "private" : "team")} />
+        非公開にする（自分だけが見られる）
+      </label>
       {err && <div className="error">{err}</div>}
       <button className="primary" disabled={busy || !repo || !prompt} onClick={submit}>
         {busy ? "Starting…" : "Start (⌘↵)"}
@@ -103,14 +125,15 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
   const [tick, setTick] = useState(0);
   const bottom = useRef<HTMLDivElement>(null);
 
+  const [missing, setMissing] = useState(false);
   useEffect(() => {
-    api.get(id).then(setS);
+    api.get(id).then(setS).catch(() => setMissing(true));
     const es = api.events(id);
     es.onmessage = (m) => {
       const ev: Event = JSON.parse(m.data);
       setEvents((prev) => appendEvent(prev, ev));
       if (ev.type === "status" || ev.type === "pr" || ev.type === "result") {
-        api.get(id).then(setS);
+        api.get(id).then(setS).catch(() => {});
         onChange();
       }
       if (ev.type === "artifact" || ev.type === "result" || ev.type === "pr") setTick((t) => t + 1);
@@ -122,6 +145,7 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
     bottom.current?.scrollIntoView({ block: "end" });
   }, [events.length]);
 
+  if (missing) return <div className="new"><h2>セッションが見つかりません</h2><p className="meta">削除されたか、閲覧する権限がありません。</p></div>;
   if (!s) return null;
   const send = async () => {
     if (!text.trim()) return;
@@ -140,9 +164,16 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
         </div>
         <div className="actions">
           {s.prUrl && <a className="button primary" href={s.prUrl} target="_blank">Pull request ↗</a>}
-          {s.busy && <button onClick={() => api.interrupt(id)}>Interrupt</button>}
-          {s.status !== "stopped" && s.status !== "deleted" && <button onClick={() => api.stop(id)}>Stop</button>}
-          {s.status !== "deleted" && (
+          {s.access.changeVisibility ? (
+            <button onClick={() => api.setVisibility(id, s.visibility === "private" ? "team" : "private").then(setS)}>
+              {s.visibility === "private" ? "🔒 非公開 → チームに公開" : "チームに公開中 → 非公開にする"}
+            </button>
+          ) : (
+            <span className="meta">作成: {s.createdBy}</span>
+          )}
+          {s.access.write && s.busy && <button onClick={() => api.interrupt(id)}>Interrupt</button>}
+          {s.access.write && s.status !== "stopped" && s.status !== "deleted" && <button onClick={() => api.stop(id)}>Stop</button>}
+          {s.access.delete && s.status !== "deleted" && (
             <button className="danger" onClick={() => confirm("Delete workspace?") && api.remove(id)}>Delete</button>
           )}
         </div>
@@ -154,7 +185,7 @@ function SessionView({ id, onChange }: { id: string; onChange: () => void }) {
             {events.map((e) => <EventRow key={e.seq} e={e} />)}
             <div ref={bottom} />
           </div>
-          {s.status !== "deleted" && (
+          {s.status !== "deleted" && s.access.write && (
             <div className="composer">
               <textarea rows={3} value={text} placeholder="Send a follow-up (⌘↵)…" onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); }} />

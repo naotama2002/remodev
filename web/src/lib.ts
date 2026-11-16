@@ -60,3 +60,11 @@ export function sessionRoute(hash: string): string {
   const h = hash.replace(/^#/, "");
   return h.startsWith("s/") ? h.slice(2) : "";
 }
+
+// sessionFilter is the "mine / team" filter in the session list.
+export type SessionFilter = "all" | "mine";
+
+export function filterSessions<T extends { createdBy: string }>(list: T[], filter: SessionFilter, login: string): T[] {
+  if (filter === "mine") return list.filter((s) => s.createdBy.toLowerCase() === login.toLowerCase());
+  return list;
+}

@@ -1,8 +1,25 @@
 // Thin client for the Go API. No business logic here.
 export type Status = "starting" | "running" | "idle" | "stopped" | "failed" | "deleted";
 
+export interface Access {
+  view: boolean;
+  write: boolean;
+  delete: boolean;
+  changeVisibility: boolean;
+}
+
+export type Visibility = "team" | "private";
+
+export interface User {
+  login: string;
+  name: string;
+  avatarUrl: string;
+}
+
 export interface Session {
   id: string;
+  visibility: Visibility;
+  access: Access;
   title: string;
   repo: string;
   baseBranch: string;
@@ -57,7 +74,8 @@ export interface Checks {
 export interface Config {
   allowedRepos: string[];
   agents: { name: string; description: string }[];
-  user: string;
+  user: User;
+  authEnabled: boolean;
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -67,6 +85,9 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const json = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    location.href = "/auth/login?next=" + encodeURIComponent(location.pathname + location.search + location.hash);
+  }
   if (!res.ok) throw new Error(json.error ?? res.statusText);
   return json as T;
 }
@@ -75,10 +96,12 @@ export const api = {
   config: () => call<Config>("GET", "/api/config"),
   list: () => call<Session[]>("GET", "/api/sessions"),
   get: (id: string) => call<Session>("GET", `/api/sessions/${id}`),
-  create: (b: { repo: string; prompt: string; agent?: string; baseBranch?: string }) =>
+  create: (b: { repo: string; prompt: string; agent?: string; baseBranch?: string; visibility?: Visibility }) =>
     call<Session>("POST", "/api/sessions", b),
   send: (id: string, text: string) => call("POST", `/api/sessions/${id}/messages`, { text }),
   interrupt: (id: string) => call("POST", `/api/sessions/${id}/interrupt`, {}),
+  setVisibility: (id: string, visibility: Visibility) => call<Session>("PATCH", `/api/sessions/${id}`, { visibility }),
+  logout: () => call("POST", "/api/logout", {}),
   stop: (id: string) => call("POST", `/api/sessions/${id}/stop`, {}),
   remove: (id: string) => call("DELETE", `/api/sessions/${id}`, {}),
   artifacts: (id: string) => call<Artifact[]>("GET", `/api/sessions/${id}/artifacts`),

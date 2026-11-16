@@ -71,3 +71,14 @@ pre.diff .add, .add { color: var(--green); } pre.diff .add { background: #12291b
 pre.diff .del, .del { color: var(--red); } pre.diff .del { background: #2e1515; }
 pre.diff .hunk { color: var(--accent); }
 .sm { font-size: 12px; } .dim { color: var(--dim); }
+
+aside { display: flex; flex-direction: column; }
+aside ul { flex: 1; }
+.filter { display: flex; gap: 4px; margin-top: 10px; }
+.filter button { flex: 1; padding: 4px; }
+.filter button.on { border-color: var(--accent); color: var(--accent); }
+.me { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 13px; }
+.me img { width: 22px; height: 22px; border-radius: 50%; }
+.me button { margin-left: auto; padding: 3px 8px; }
+.new label.check { display: flex; gap: 8px; align-items: center; }
+.new label.check input { width: auto; }

@@ -31,6 +31,8 @@ docker compose up --build -d
 open http://localhost:8080
 ```
 
+Team use: create a GitHub OAuth App (callback `<REMODEV_BASE_URL>/auth/callback`) and set `REMODEV_AUTH=github`, `REMODEV_GITHUB_CLIENT_ID/SECRET` and `REMODEV_ALLOWED_ORGS` (or `REMODEV_ALLOWED_USERS`). Sessions are shared with the team by default and can be made private.
+
 Claude credential: `REMODEV_ANTHROPIC_API_KEY`, or a subscription token from `claude setup-token` in `REMODEV_CLAUDE_OAUTH_TOKEN`.
 
 Per-repository environment: add `.remodev/Dockerfile` (`FROM ${REMODEV_BASE}`) and optionally `.remodev/setup.sh` to your repository. See [docs/vision.md](docs/vision.md#環境定義) and this repository's own [.remodev/](.remodev/).

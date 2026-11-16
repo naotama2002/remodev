@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/naotama2002/remodev/internal/auth"
 	"github.com/naotama2002/remodev/internal/ca"
 	"github.com/naotama2002/remodev/internal/config"
 	"github.com/naotama2002/remodev/internal/docker"
@@ -92,9 +93,28 @@ func run(log *slog.Logger) error {
 			ui = sub
 		}
 	}
+	key, err := auth.LoadKey(filepath.Join(cfg.DataDir, "auth.key"))
+	if err != nil {
+		return err
+	}
+	a := &auth.Auth{Mode: cfg.AuthMode, Key: key, AllowedOrgs: cfg.AllowedOrgs, AllowedUsers: cfg.AllowedUsers, BaseURL: cfg.BaseURL, Log: log}
+	var fakeLogin http.HandlerFunc
+	if cfg.AuthMode == "github" {
+		if cfg.Runtime == "fake" && cfg.GitHubClientID == "" {
+			org := "acme"
+			if len(cfg.AllowedOrgs) > 0 {
+				org = cfg.AllowedOrgs[0]
+			}
+			fp := &auth.FakeProvider{Org: org}
+			a.Provider, fakeLogin = fp, fp.Page
+			log.Warn("REMODEV_AUTH=github with REMODEV_RUNTIME=fake: using the fake login page")
+		} else {
+			a.Provider = auth.NewGitHubProvider(cfg.GitHubClientID, cfg.GitHubClientSecret, cfg.BaseURL+"/auth/callback", len(cfg.AllowedOrgs) > 0)
+		}
+	}
 	srv := &http.Server{
 		Addr:              cfg.Listen,
-		Handler:           (&server.Server{Cfg: cfg, M: m, UI: ui, Log: log}).Handler(),
+		Handler:           (&server.Server{Cfg: cfg, M: m, Auth: a, UI: ui, Log: log, FakeLogin: fakeLogin}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {
@@ -107,5 +127,7 @@ func run(log *slog.Logger) error {
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+	log.Info("shutting down: interrupting running turns")
+	m.Close()
 	return nil
 }

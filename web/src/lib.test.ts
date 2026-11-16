@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appendEvent, ciState, fmtSize, sessionRoute, splitDiff } from "./lib.ts";
+import { appendEvent, ciState, filterSessions, fmtSize, sessionRoute, splitDiff } from "./lib.ts";
 
 test("splitDiff counts additions and deletions per file", () => {
   const diff = [
@@ -53,4 +53,10 @@ test("sessionRoute", () => {
   assert.equal(sessionRoute("s/abc123"), "abc123");
   assert.equal(sessionRoute(""), "");
   assert.equal(sessionRoute("#new"), "");
+});
+
+test("filterSessions", () => {
+  const list = [{ createdBy: "alice" }, { createdBy: "Bob" }];
+  assert.equal(filterSessions(list, "all", "bob").length, 2);
+  assert.deepEqual(filterSessions(list, "mine", "bob"), [{ createdBy: "Bob" }]);
 });
